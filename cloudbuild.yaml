@@ -1,0 +1,15 @@
+steps:
+  # Build the application using Cloud Native Buildpacks
+  - name: 'gcr.io/k8s-skaffold/pack'
+    entrypoint: 'pack'
+    args:
+      - 'build'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/orca-repo/orca-sidecar:latest'
+      # Specify the official Google Cloud Buildpack builder
+      - '--builder=gcr.io/buildpacks/builder:v1'
+      # --publish tells pack to push the image directly to Artifact Registry 
+      # once the build is complete, bypassing the local Docker daemon.
+      - '--publish' 
+      
+# Note: Because we use the '--publish' flag in the pack command, 
+# we do not need the standard 'images:' block at the bottom of this file.
