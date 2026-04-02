@@ -24,44 +24,60 @@ var (
 // collectMetrics runs in the background to periodically poll the target processes
 // for their aggregated CPU and Memory utilization.
 func collectMetrics(appProcessName string, interval time.Duration) {
-        for {
-                var totalCPU float64
-                var totalMem float32
-                var found bool
+	for {
+		var totalCPU float64
+		var totalMem float32
+		var cpuCount int32
+		var memCount int32
 
-                procs, err := process.Processes()
-                if err == nil {
-                        for _, p := range procs {
-                                name, _ := p.Name()
-                                // Match every process that shares the target name (e.g., all apache2 workers)
-                                if name == appProcessName {
-                                        found = true
+		var found bool
 
-                                        cpuPct, err := p.CPUPercent()
-                                        if err == nil {
-                                                totalCPU += cpuPct
-                                        }
+		procs, err := process.Processes()
+		if err == nil {
+			for _, p := range procs {
+				name, _ := p.Name()
+				// Match every process that shares the target name (e.g., all apache2 workers)
+				if name == appProcessName {
+					found = true
+					
+					cpuPct, err := p.CPUPercent()
+					if err == nil {
+						totalCPU += cpuPct
+						if cpuPct > 0 {
+							cpuCount++
+						}
+					}
 
-                                        memPct, err := p.MemoryPercent()
-                                        if err == nil {
-                                                totalMem += memPct
-                                        }
-                                }
-                        }
-                }
+					memPct, err := p.MemoryPercent()
+					if err == nil {
+						totalMem += memPct
+						if memPct > 0 {
+							memCount++
+						}
+					}
+				}
+			}
+		}
 
-                if found {
-                        mu.Lock()
-                        currentCPU = totalCPU / 100.0
-                        currentMem = float64(totalMem) / 100.0
-                        mu.Unlock()
-                } else {
-                        log.Printf("Waiting for processes named: %s", appProcessName)
-                }
+		if found {
+			mu.Lock()
+			//avoid a poss div by zero
+			if cpuCount == 0 {
+				cpuCount = 1
+			}
+			if memCount == 0 {
+				memCount = 1
+			}
+			currentCPU = totalCPU / float64(cpuCount)
+			currentMem = float64(totalMem) / float64(memCount)
+			mu.Unlock()
+		} else {
+			log.Printf("Waiting for processes named: %s", appProcessName)
+		}
 
-                // Sleep for the configured interval before polling again
-                time.Sleep(interval)
-        }
+		// Sleep for the configured interval before polling again
+		time.Sleep(interval)
+	}
 }
 
 func main() {
