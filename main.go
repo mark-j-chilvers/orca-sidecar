@@ -119,32 +119,32 @@ func main() {
 
         proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
-        proxy.ModifyResponse = func(resp *http.Response) error {
-                mu.RLock()
-                cpu := currentCPU
-                mem := currentMem
-                mu.RUnlock()
+       	proxy.ModifyResponse = func(resp *http.Response) error {
+		mu.RLock()
+		cpu := currentCPU
+		mem := currentMem
+		mu.RUnlock()
 
-                loadReport := &orcapb.OrcaLoadReport{
-                        CpuUtilization: cpu,
-                        MemUtilization: mem,
-                }
+		loadReport := &orcapb.OrcaLoadReport{
+			CpuUtilization: cpu,
+			MemUtilization: mem,
+		}
 
-                // 2. Marshal the Protobuf to JSON instead of Binary/Base64
-                // We use protojson rather than standard encoding/json to ensure standard proto JSON mapping
-                jsonBytes, err := protojson.Marshal(loadReport)
-                if err == nil {
-                        jsonString := string(jsonBytes)
+		// 2. Marshal the Protobuf to JSON instead of Binary/Base64
+		jsonBytes, err := json.Marshal(loadReport)
 
-                        // Note: The header name drops the "-Bin" suffix when sending JSON or text
-                        resp.Header.Set("Endpoint-Load-Metrics", jsonString)
-                        resp.Header.Set("X-Endpoint-Load-Metrics", jsonString)
-                } else {
-                        log.Printf("Failed to marshal ORCA protobuf to JSON: %v", err)
-                }
+		if err == nil {
+			jsonString := string(jsonBytes)
 
-                return nil
-        }
+			// Note: The header name drops the "-Bin" suffix when sending JSON or text
+			resp.Header.Set("Endpoint-Load-Metrics", "JSON "+jsonString)
+			resp.Header.Set("X-Endpoint-Load-Metrics", "JSON "+jsonString)
+		} else {
+			log.Printf("Failed to marshal ORCA protobuf to JSON: %v", err)
+		}
+
+		return nil
+	}
 
         log.Printf("Starting ORCA sidecar proxy on port %s -> %s", sidecarPort, appPort)
         if err := http.ListenAndServe(fmt.Sprintf(":%s", sidecarPort), proxy); err != nil {
