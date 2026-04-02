@@ -131,7 +131,6 @@ func main() {
 		}
 
 		// 2. Marshal the Protobuf to JSON instead of Binary/Base64
-		// We use protojson rather than standard encoding/json to ensure standard proto JSON mapping
 		jsonBytes, err := json.Marshal(loadReport)
 
 		if err == nil {
