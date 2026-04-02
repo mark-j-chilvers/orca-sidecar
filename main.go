@@ -147,6 +147,21 @@ func main() {
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 
+	// NEW: Handle network-level errors (timeouts, connection refused)
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Printf("Proxy backend error: %v", err)
+
+		// 1. A request was still attempted, so increment total requests
+		atomic.AddUint64(&totalRequests, 1)
+		
+		// 2. The backend failed to respond, so increment total errors
+		atomic.AddUint64(&totalErrors, 1)
+
+		// 3. Return a standard 502 Bad Gateway to the load balancer
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprintln(w, "Bad Gateway")
+	}
+
 	proxy.ModifyResponse = func(resp *http.Response) error {
 		// 1. Track the request and potential errors
 		atomic.AddUint64(&totalRequests, 1)
